@@ -1,6 +1,7 @@
 # Update Log
 
 ## 2026-06-23
+* **Fix**: Replaced the "reserve the last column" workaround with the documented ncurses mechanism. Per `curs_addch(3x)`, with `scrollok()` FALSE a write that advances the cursor off the bottom-right margin returns `ERR` instead of scrolling the screen — so the frame and both bars now span the full `COLS` (the right border reaches the screen edge, no blank column) and the top menu bar stays pinned. The earlier "status bar stops one column short" note is superseded.
 * **Fix**: Added 1-column padding inside both panes so body/tree text never butts against the frame borders (the borders stay clean and the content has breathing room). Body wraps to `cols-split-4`; verified long lines wrap rather than truncate.
 * **Fix**: Corrected the OKFI logo art (rows were uneven widths → garbled letters; now verified 28 columns each, literal UTF-8). Made rendering auto-margin-safe: the last terminal column is now never written (bars stop at `COLS-1`; both panes lay out within `COLS-1`), so a long line can no longer trigger a one-row scroll that ate the top menu bar.
 * **Update**: Renamed the project **fokf → okfi** (Open Knowledge Format Interface) — binary, config dir (`~/.config/okfi/`), source `okfi.c`, temp files, and all branding.

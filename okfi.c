@@ -1658,13 +1658,15 @@ static void draw_sbox(int y, int x, int h, int w, const char *title) {
 		mvprintw(y, x + 2, " %s ", title);
 }
 
-/* full-width status/menu bar at row y. On the very last row we stop one column
- * short: writing the bottom-right cell scrolls the whole screen (eating the top
- * bar) on terminals where that triggers an auto-advance. */
+/* full-width status/menu bar at row y, spanning the whole row including the
+ * lower-right cell. Per curs_addch(3x): with scrollok() FALSE (set in run_ui),
+ * advancing the cursor off the bottom-right margin does not scroll — the write
+ * just returns ERR — and ncurses still paints the corner via insert-mode /
+ * auto-margin toggling on capable terminals. So no column needs reserving. */
 static void bar_at(int y, const char *text) {
 	char b[1024];
 	snprintf(b, sizeof b, " %s", text);
-	int w = COLS - 1; /* never touch the last column (auto-margin safe) */
+	int w = COLS;
 	if (w < 0)
 		w = 0;
 	attron(sty_bar);
@@ -2420,7 +2422,7 @@ static void menu_bar(int ctx, int active, const char *right) {
 	menus_for(ctx, &m, &n);
 	menu_layout(ctx, xs);
 	attron(sty_bar);
-	mvprintw(0, 0, "%-*.*s", COLS - 1, COLS - 1, "");
+	mvprintw(0, 0, "%-*.*s", COLS, COLS, "");
 	mvprintw(0, 1, "OKFI");
 	attroff(sty_bar);
 	for (int i = 0; i < n; i++) {
@@ -2538,7 +2540,7 @@ static int run_browser(int picker_active) {
 		int ci = (nvrows && !on_header) ? vrows[sel].cidx : -1;
 
 		erase();
-		int rows = LINES, cols = COLS - 1; /* reserve last column */
+		int rows = LINES, cols = COLS; /* frame reaches the screen edge; scrollok(FALSE) makes the corner safe */
 		int split = cols / 3;
 		if (split > 44)
 			split = 44;
@@ -2791,7 +2793,7 @@ static void run_picker(void) {
 	int sel = 0, top = 0;
 	for (;;) {
 		erase();
-		int rows = LINES, cols = COLS - 1; /* reserve last column */
+		int rows = LINES, cols = COLS; /* full width; scrollok(FALSE) makes the corner safe */
 		char binfo[48];
 		snprintf(binfo, sizeof binfo, "%d bundle%s", nbundles, nbundles == 1 ? "" : "s");
 		menu_bar(MENU_PICKER, -1, binfo);
@@ -2906,7 +2908,11 @@ static void run_ui(const char *direct_dir, int force_mono) {
 	noecho();
 	keypad(stdscr, TRUE);
 	curs_set(0);
-	scrollok(stdscr, FALSE); /* never scroll the screen on a corner write */
+	/* curs_addch(3x): with scrollok FALSE, a write that advances the cursor off
+	 * the bottom-right margin returns ERR instead of scrolling the screen. This
+	 * is the documented mechanism that keeps the top menu bar pinned even when a
+	 * full-width status bar fills the last row. */
+	scrollok(stdscr, FALSE);
 	idlok(stdscr, FALSE);
 	set_escdelay(25); /* make ESC-to-cancel feel instant */
 	{ /* disable XON/XOFF so the editor's ^S reaches us instead of pausing the tty */
