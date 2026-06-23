@@ -42,4 +42,5 @@ color.bar = 231,21
 (internal/system), cycle the group order (type/count/priority), add a search root (`Enter`
 on `[ add search root ]`), delete a root (`d`), or set any `color.<role>` (`Enter` → type
 `fg` or `fg,bg`). Every change re-applies live and writes the config immediately.
-`Esc`/`q` saves and returns. (`group_priority` is edited in the config file.)
+`Esc`/`q` saves and returns. Selecting the `priority` group order prompts for the
+comma-separated type list right there (also editable in the config file).

@@ -1,6 +1,7 @@
 # Update Log
 
 ## 2026-06-22
+* **Fix**: Audit follow-ups — `build_tree_view` group arrays are now dynamic (sized to `nconcepts`), removing the 128-distinct-type cap that could silently drop a concept (accuracy floor); selecting the `priority` group order in settings now prompts for the type list, so the mode is fully UI-configurable rather than config-file-only.
 * **Update**: Collapse state now **persists across runs** — folds are stored in the config as `fold = bundle⇥group` lines keyed by bundle path (the single source of truth; the session-only array was deleted). Added `*` to **collapse/expand all** groups, and **configurable group order** (`group_order = type|count|priority` + `group_priority` list), cyclable in settings. Verified all three end-to-end.
 * **Fix**: Hardened the collapse feature per audit — widened `collapsed_groups` to match `VRow.label` (a ≥64-char type name would otherwise never match in `is_collapsed`), and replaced the fragile pointer-identity reset with an explicit `load_bundle(dir, reset_collapse)` parameter (folds now reliably survive an in-bundle edit/new, reset only on bundle switch).
 * **Update**: Tree groups are now **collapsible** (`Space`/`Enter` on a header, `▾`/`▸` markers) and show a **per-type count**; a selected header shows a folder summary in the content pane. Both panes sit in a **frame** whose focused pane is outlined/brightened with a highlighted `TREE`/`CONTENT` title. Collapse state is per-bundle session state.

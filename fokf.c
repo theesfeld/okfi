@@ -378,9 +378,12 @@ static void build_tree_view(void) {
 	nvrows = 0;
 	if (nconcepts == 0)
 		return;
-	/* distinct groups + counts */
-	char groups[128][160];
-	int gcount[128], ng = 0;
+	/* distinct groups + counts — sized to nconcepts (its true upper bound), so
+	 * no fixed cap can silently drop a concept whose type is the Nth distinct. */
+	char(*groups)[160] = malloc(sizeof groups[0] * nconcepts);
+	int *gcount = malloc(sizeof(int) * nconcepts);
+	int *order = malloc(sizeof(int) * nconcepts);
+	int ng = 0;
 	for (int i = 0; i < nconcepts; i++) {
 		const char *g = concept_group(i);
 		int f = -1;
@@ -389,16 +392,14 @@ static void build_tree_view(void) {
 				f = k;
 				break;
 			}
-		if (f < 0 && ng < 128) {
+		if (f < 0) {
 			snprintf(groups[ng], sizeof groups[0], "%s", g);
 			gcount[ng] = 0;
 			f = ng++;
 		}
-		if (f >= 0)
-			gcount[f]++;
+		gcount[f]++;
 	}
 	/* order the groups (selection sort; ng is tiny) */
-	int order[128];
 	for (int k = 0; k < ng; k++)
 		order[k] = k;
 	for (int a = 0; a < ng; a++)
@@ -428,6 +429,9 @@ static void build_tree_view(void) {
 			push_vrow(0, ids[m], concept_label(ids[m]));
 		free(ids);
 	}
+	free(groups);
+	free(gcount);
+	free(order);
 }
 
 static int vrow_of_header(const char *g) {
@@ -2174,6 +2178,22 @@ static void run_settings(void) {
 				                   : strcmp(cfg_group_order, "count") == 0 ? "priority"
 				                                                           : "type";
 				snprintf(cfg_group_order, sizeof cfg_group_order, "%s", next);
+				if (strcmp(cfg_group_order, "priority") == 0) {
+					/* let the user set the list here so the mode actually does something */
+					char pl[1024] = "";
+					for (int i = 0; i < n_priority; i++) {
+						strncat(pl, i ? "," : "", sizeof pl - strlen(pl) - 1);
+						strncat(pl, cfg_priority[i], sizeof pl - strlen(pl) - 1);
+					}
+					if (prompt_line("Priority types (comma-separated): ", pl,
+					                sizeof pl)) {
+						n_priority = 0;
+						for (char *tok = strtok(pl, ","); tok && n_priority < 32;
+						     tok = strtok(NULL, ","))
+							snprintf(cfg_priority[n_priority++], sizeof cfg_priority[0],
+							         "%s", trim(tok));
+					}
+				}
 				save_config();
 			} else if (sel == ADD) { /* add root */
 				char r[1024] = "";
