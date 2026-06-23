@@ -1,4 +1,4 @@
-/* fokf — a terminal browser for Open Knowledge Format (OKF) bundles.
+/* okfi — a terminal browser for Open Knowledge Format (OKF) bundles.
  *
  * Reads a bundle directory of markdown concept files, parses the flat
  * key:value frontmatter subset OKF uses, and presents a two-pane viewer.
@@ -543,9 +543,9 @@ static void cfg_remove_root(int idx) {
 static void load_config(void) {
 	const char *xdg = getenv("XDG_CONFIG_HOME"), *home = getenv("HOME");
 	if (xdg && *xdg)
-		snprintf(cfg_path, sizeof cfg_path, "%s/fokf/config", xdg);
+		snprintf(cfg_path, sizeof cfg_path, "%s/okfi/config", xdg);
 	else
-		snprintf(cfg_path, sizeof cfg_path, "%s/.config/fokf/config",
+		snprintf(cfg_path, sizeof cfg_path, "%s/.config/okfi/config",
 		         home ? home : ".");
 	char *buf = read_file(cfg_path);
 	if (!buf)
@@ -920,57 +920,65 @@ static void put_run(char *tb, attr_t *ab, int *n, const char *s, const attr_t *a
 	}
 }
 
-/* Semantic styles, resolved once from terminal capability: a color interface
- * when the terminal supports it, plain attributes as the mono fallback. */
+/* Semantic styles, resolved once from terminal capability + theme. */
 static attr_t sty_head, sty_bold, sty_ital, sty_code, sty_link;
 static attr_t sty_codeblk, sty_key, sty_bar, sty_tag;
+static attr_t sty_logo[6];          /* cyan→magenta gradient rows */
+static attr_t sty_frame, sty_framef; /* unfocused / focused pane border */
 
 enum {
-	P_HEAD = 1,
-	P_BOLD,
-	P_ITAL,
-	P_CODE,
-	P_LINK,
-	P_CODEBLK,
-	P_KEY,
-	P_BAR,
-	P_TAG
+	P_HEAD = 1, P_BOLD, P_ITAL, P_CODE, P_LINK, P_CODEBLK, P_KEY, P_BAR, P_TAG,
+	P_LOGO0, P_LOGO1, P_LOGO2, P_LOGO3, P_LOGO4, P_LOGO5, /* 10..15 */
+	P_FRAME, P_FRAMEF                                     /* 16, 17 */
 };
 
 /* call after start_color()+use_default_colors(); color=0 (or theme "mono") = mono.
- * A theme picks the base palette; per-role config overrides win over the theme. */
+ * Themes: dark (default), light, bbs, mono. Per-role config overrides win. */
 static void init_styles(int color) {
 	if (!color || strcmp(cfg_theme, "mono") == 0) {
-		sty_head = A_BOLD;
-		sty_bold = A_BOLD;
+		sty_head = sty_bold = sty_key = A_BOLD;
 		sty_ital = A_ITALIC;
 		sty_code = A_REVERSE;
 		sty_link = A_UNDERLINE;
-		sty_codeblk = A_DIM;
-		sty_key = A_BOLD;
+		sty_codeblk = sty_tag = A_DIM;
 		sty_bar = A_REVERSE;
-		sty_tag = A_DIM;
+		sty_frame = A_DIM;
+		sty_framef = A_BOLD;
+		for (int i = 0; i < 6; i++)
+			sty_logo[i] = A_BOLD;
 		return;
 	}
 	int fg[C_NROLES], bg[C_NROLES];
+	int logo[6], framef, framefoc, hi256 = COLORS >= 256;
+	int light = strcmp(cfg_theme, "light") == 0;
 	int bbs = strcmp(cfg_theme, "bbs") == 0;
-	if (COLORS >= 256 && bbs) { /* vivid BBS palette */
-		int f[] = {51, 226, 213, 46, 45, 244, 51, 231, 121};
+
+	if (hi256 && light) { /* dark inks for a light background */
+		int f[] = {23, 130, 28, 124, 26, 240, 23, 231, 58};
+		int b[] = {-1, -1, -1, -1, -1, -1, -1, 24, -1};
+		int lg[] = {30, 31, 61, 97, 133, 162};
+		memcpy(fg, f, sizeof fg); memcpy(bg, b, sizeof bg); memcpy(logo, lg, sizeof logo);
+		framef = 244; framefoc = 23;
+	} else if (hi256 && bbs) { /* vivid BBS, dark bg */
+		int f[] = {51, 214, 213, 46, 45, 245, 51, 231, 121};
 		int b[] = {-1, -1, -1, -1, -1, -1, -1, 21, -1};
-		memcpy(fg, f, sizeof fg);
-		memcpy(bg, b, sizeof bg);
-	} else if (COLORS >= 256) { /* default 256 palette */
+		int lg[] = {51, 45, 69, 99, 171, 201};
+		memcpy(fg, f, sizeof fg); memcpy(bg, b, sizeof bg); memcpy(logo, lg, sizeof logo);
+		framef = 240; framefoc = 51;
+	} else if (hi256) { /* dark theme (default) */
 		int f[] = {81, 215, 114, 210, 75, 245, 81, 231, 108};
 		int b[] = {-1, -1, -1, -1, -1, -1, -1, 24, -1};
-		memcpy(fg, f, sizeof fg);
-		memcpy(bg, b, sizeof bg);
+		int lg[] = {51, 45, 69, 99, 171, 201};
+		memcpy(fg, f, sizeof fg); memcpy(bg, b, sizeof bg); memcpy(logo, lg, sizeof logo);
+		framef = 240; framefoc = 51;
 	} else { /* 8/16-color fallback */
-		int f[] = {COLOR_CYAN,  COLOR_YELLOW, COLOR_MAGENTA,
-		           COLOR_GREEN, COLOR_BLUE,   COLOR_BLUE,
-		           COLOR_CYAN,  COLOR_WHITE,  COLOR_GREEN};
+		int f[] = {COLOR_CYAN,  COLOR_YELLOW, COLOR_MAGENTA, COLOR_RED,  COLOR_BLUE,
+		           COLOR_BLUE,  COLOR_CYAN,   COLOR_WHITE,   COLOR_GREEN};
 		int b[] = {-1, -1, -1, -1, -1, -1, -1, COLOR_BLUE, -1};
-		memcpy(fg, f, sizeof fg);
-		memcpy(bg, b, sizeof bg);
+		int lg[] = {COLOR_CYAN, COLOR_CYAN, COLOR_BLUE,
+		            COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA};
+		memcpy(fg, f, sizeof fg); memcpy(bg, b, sizeof bg); memcpy(logo, lg, sizeof logo);
+		framef = COLOR_BLUE; framefoc = COLOR_CYAN;
 	}
 	for (int r = 0; r < C_NROLES; r++)
 		if (cfg_color[r].set) { /* user override beats the theme */
@@ -978,7 +986,11 @@ static void init_styles(int color) {
 			bg[r] = cfg_color[r].bg;
 		}
 	for (int r = 0; r < C_NROLES; r++)
-		init_pair(r + 1, fg[r], bg[r]); /* C_x role → color pair P_x = C_x+1 */
+		init_pair(r + 1, fg[r], bg[r]);
+	for (int i = 0; i < 6; i++)
+		init_pair(P_LOGO0 + i, logo[i], -1);
+	init_pair(P_FRAME, framef, -1);
+	init_pair(P_FRAMEF, framefoc, -1);
 
 	sty_head = COLOR_PAIR(P_HEAD) | A_BOLD;
 	sty_bold = COLOR_PAIR(P_BOLD) | A_BOLD;
@@ -989,6 +1001,10 @@ static void init_styles(int color) {
 	sty_key = COLOR_PAIR(P_KEY) | A_BOLD;
 	sty_bar = COLOR_PAIR(P_BAR) | A_BOLD;
 	sty_tag = COLOR_PAIR(P_TAG);
+	for (int i = 0; i < 6; i++)
+		sty_logo[i] = COLOR_PAIR(P_LOGO0 + i) | A_BOLD;
+	sty_frame = COLOR_PAIR(P_FRAME);
+	sty_framef = COLOR_PAIR(P_FRAMEF) | A_BOLD;
 }
 
 /* CommonMark code span at s[i] (a backtick): an opening run of N backticks
@@ -1567,8 +1583,43 @@ static void draw_wline(int y, int x, const WLine *w, int maxcols) {
 #define SL_V "\xe2\x94\x82"  /* │ */
 #define SL_TD "\xe2\x94\xac" /* ┬ */
 #define SL_TU "\xe2\x94\xb4" /* ┴ */
+#define SL_VR "\xe2\x94\x9c" /* ├ */
+#define SL_VL "\xe2\x94\xa4" /* ┤ */
+#define SL_X "\xe2\x94\xbc"  /* ┼ */
 
 static int g_color; /* so settings can re-init styles live */
+
+/* OKFI in FIGlet "ANSI Shadow" — 28 display columns wide, 6 rows. */
+static const char *const OKFI_LOGO[6] = {
+    " \xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x95\x97 \xe2\x96\x88\xe2\x96\x88\xe2\x95\x97  \xe2\x96\x88\xe2\x96\x88\xe2\x95\x97\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x95\x97\xe2\x96\x88\xe2\x96\x88\xe2\x95\x97",
+    "\xe2\x96\x88\xe2\x96\x88\xe2\x95\x94\xe2\x95\x90\xe2\x95\x90\xe2\x95\x90\xe2\x96\x88\xe2\x96\x88\xe2\x95\x97\xe2\x96\x88\xe2\x96\x88\xe2\x95\x91 \xe2\x96\x88\xe2\x96\x88\xe2\x95\x94\xe2\x95\x9d\xe2\x96\x88\xe2\x96\x88\xe2\x95\x94\xe2\x95\x90\xe2\x95\x90\xe2\x95\x90\xe2\x95\x90\xe2\x95\x9d\xe2\x96\x88\xe2\x96\x88\xe2\x95\x91",
+    "\xe2\x96\x88\xe2\x96\x88\xe2\x95\x91   \xe2\x96\x88\xe2\x96\x88\xe2\x95\x91\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x95\x94\xe2\x95\x9d \xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x95\x97  \xe2\x96\x88\xe2\x96\x88\xe2\x95\x91",
+    "\xe2\x96\x88\xe2\x96\x88\xe2\x95\x91   \xe2\x96\x88\xe2\x96\x88\xe2\x95\x91\xe2\x96\x88\xe2\x96\x88\xe2\x95\x94\xe2\x95\x90\xe2\x96\x88\xe2\x96\x88\xe2\x95\x97 \xe2\x96\x88\xe2\x96\x88\xe2\x95\x94\xe2\x95\x90\xe2\x95\x90\xe2\x95\x9d  \xe2\x96\x88\xe2\x96\x88\xe2\x95\x91",
+    "\xe2\x95\x9a\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x96\x88\xe2\x95\x94\xe2\x95\x9d\xe2\x96\x88\xe2\x96\x88\xe2\x95\x91  \xe2\x96\x88\xe2\x96\x88\xe2\x95\x97\xe2\x96\x88\xe2\x96\x88\xe2\x95\x91     \xe2\x96\x88\xe2\x96\x88\xe2\x95\x91",
+    " \xe2\x95\x9a\xe2\x95\x90\xe2\x95\x90\xe2\x95\x90\xe2\x95\x90\xe2\x95\x90\xe2\x95\x9d \xe2\x95\x9a\xe2\x95\x90\xe2\x95\x9d  \xe2\x95\x9a\xe2\x95\x90\xe2\x95\x9d\xe2\x95\x9a\xe2\x95\x90\xe2\x95\x9d     \xe2\x95\x9a\xe2\x95\x90\xe2\x95\x9d",
+};
+#define LOGO_W 28
+#define LOGO_H 6
+
+/* draw the gradient logo centered, top row at y; returns rows consumed */
+static int draw_logo(int y, int cols) {
+	int x = (cols - LOGO_W) / 2;
+	if (x < 0)
+		x = 0;
+	for (int i = 0; i < LOGO_H; i++) {
+		attron(sty_logo[i]);
+		mvaddstr(y + i, x, OKFI_LOGO[i]);
+		attroff(sty_logo[i]);
+	}
+	const char *tag = "Open Knowledge Format Interface";
+	int tx = (cols - (int)strlen(tag)) / 2;
+	if (tx < 0)
+		tx = 0;
+	attron(sty_tag);
+	mvprintw(y + LOGO_H, tx, "%s", tag);
+	attroff(sty_tag);
+	return LOGO_H + 1;
+}
 
 static void draw_box(int y, int x, int h, int w) {
 	if (h < 2 || w < 2)
@@ -1585,6 +1636,26 @@ static void draw_box(int y, int x, int h, int w) {
 		mvaddstr(y + r, x, BX_V);
 		mvaddstr(y + r, x + w - 1, BX_V);
 	}
+}
+
+/* single-line box (matches the browser frame) with an optional title */
+static void draw_sbox(int y, int x, int h, int w, const char *title) {
+	if (h < 2 || w < 2)
+		return;
+	mvaddstr(y, x, SL_TL);
+	mvaddstr(y, x + w - 1, SL_TR);
+	mvaddstr(y + h - 1, x, SL_BL);
+	mvaddstr(y + h - 1, x + w - 1, SL_BR);
+	for (int i = 1; i < w - 1; i++) {
+		mvaddstr(y, x + i, SL_H);
+		mvaddstr(y + h - 1, x + i, SL_H);
+	}
+	for (int r = 1; r < h - 1; r++) {
+		mvaddstr(y + r, x, SL_V);
+		mvaddstr(y + r, x + w - 1, SL_V);
+	}
+	if (title)
+		mvprintw(y, x + 2, " %s ", title);
 }
 
 /* full-width status/menu bar at row y. On the very last row we stop one column
@@ -1712,7 +1783,7 @@ static int confirm(const char *label) {
 /* write via temp+rename so a crash/ENOSPC never truncates the real file */
 static int write_atomic(const char *path, const char *data, size_t len) {
 	char tmp[1200];
-	snprintf(tmp, sizeof tmp, "%s.fokftmp", path);
+	snprintf(tmp, sizeof tmp, "%s.okfitmp", path);
 	FILE *f = fopen(tmp, "wb");
 	if (!f)
 		return -1;
@@ -2118,7 +2189,7 @@ static void run_settings(void) {
 		if (sel < 0)
 			sel = 0;
 		erase();
-		bar_at(0, "fokf  SETTINGS   Enter:change  d:delete root  Esc:save & back");
+		bar_at(0, "okfi  SETTINGS   Enter:change  d:delete root  Esc:save & back");
 		int y = 2;
 		for (int it = 0; it < n_items; it++) {
 			char line[1024];
@@ -2162,10 +2233,12 @@ static void run_settings(void) {
 			cfg_remove_root(sel - ROOT0);
 			save_config();
 		} else if (c == '\n' || c == '\r') {
-			if (sel == 0) { /* cycle theme */
-				const char *next = strcmp(cfg_theme, "default") == 0  ? "bbs"
-				                   : strcmp(cfg_theme, "bbs") == 0     ? "mono"
-				                                                       : "default";
+			if (sel == 0) { /* cycle theme: dark → light → bbs → mono */
+				const char *next =
+				    strcmp(cfg_theme, "dark") == 0 || strcmp(cfg_theme, "default") == 0 ? "light"
+				    : strcmp(cfg_theme, "light") == 0 ? "bbs"
+				    : strcmp(cfg_theme, "bbs") == 0   ? "mono"
+				                                      : "dark";
 				snprintf(cfg_theme, sizeof cfg_theme, "%s", next);
 				init_styles(g_color);
 				save_config();
@@ -2220,22 +2293,24 @@ static void run_settings(void) {
 /* ---- browser (one open bundle) ----------------------------------------- */
 
 static const char *const BROWSE_HELP[] = {
+    "F9 / \\              open the menu bar",
     "j / k  or  arrows   move within the focused pane",
-    "l / right           focus the content pane (scroll it)",
-    "h / left            focus the file tree",
-    "Space / Enter       collapse/expand a group, or open a concept",
-    "*                   collapse all groups / expand all",
-    "g / G               first / last  (in focused pane)",
-    "J / K , PgDn/PgUp   scroll content (from either pane)",
+    "l / h  or  arrows   focus content / tree",
+    "Tab                 collapse/expand the current group",
+    "Shift+Tab  or  *    collapse all / expand all",
+    "Space / Enter       fold a group, or open a concept",
+    "g / G , J / K       first/last · scroll content",
     "1-9                 follow a numbered body link",
-    "e   edit     n   new concept     Tab  bundles",
-    ",  settings    ?  help    q  quit",
+    "e edit · n new · E export PDF · , settings",
+    "Esc  back to bundles    ?  help    q  quit",
 };
 
 /* draw the two-pane frame; the focused pane's border is brightened */
+/* one connected single-line frame split into two panes; the focused pane's
+ * border is redrawn in the bright frame colour so it reads as active. */
 static void draw_frame(int rows, int cols, int split, int focus) {
 	int b = 1, bb = rows - 2; /* top / bottom border rows */
-	attrset(sty_codeblk);
+	attrset(sty_frame);
 	mvaddstr(b, 0, SL_TL);
 	mvaddstr(b, cols - 1, SL_TR);
 	mvaddstr(bb, 0, SL_BL);
@@ -2244,30 +2319,209 @@ static void draw_frame(int rows, int cols, int split, int focus) {
 		mvaddstr(b, c, SL_H);
 		mvaddstr(bb, c, SL_H);
 	}
-	mvaddstr(b, split, SL_TD);
-	mvaddstr(bb, split, SL_TU);
+	mvaddstr(b, split, SL_TD);  /* ┬ joins the divider to the top edge */
+	mvaddstr(bb, split, SL_TU); /* ┴ joins it to the bottom edge */
 	for (int y = b + 1; y < bb; y++) {
 		mvaddstr(y, 0, SL_V);
 		mvaddstr(y, split, SL_V);
 		mvaddstr(y, cols - 1, SL_V);
 	}
-	/* brighten the focused pane's outer + shared edges */
-	attrset(sty_head | A_BOLD);
-	int ex = focus ? cols - 1 : 0; /* the focused pane's outer vertical */
-	for (int y = b + 1; y < bb; y++) {
-		mvaddstr(y, split, SL_V);
-		mvaddstr(y, ex, SL_V);
-	}
-	mvaddstr(b, split, SL_TD);
-	mvaddstr(bb, split, SL_TU);
 	attrset(A_NORMAL);
-	/* pane titles on the top border; the focused one is reversed */
-	attrset(focus == 0 ? sty_bar : sty_codeblk);
+
+	/* redraw the focused pane's three edges (outer verticals + top/bottom run +
+	 * the shared divider) in the bright frame colour */
+	attrset(sty_framef);
+	int x0 = focus ? split : 0, x1 = focus ? cols - 1 : split;
+	for (int c = x0; c <= x1; c++) {
+		mvaddstr(b, c, c == x0 ? (focus ? SL_TD : SL_TL) : c == x1 ? (focus ? SL_TR : SL_TD) : SL_H);
+		mvaddstr(bb, c, c == x0 ? (focus ? SL_TU : SL_BL) : c == x1 ? (focus ? SL_BR : SL_TU) : SL_H);
+	}
+	for (int y = b + 1; y < bb; y++) {
+		mvaddstr(y, x0, SL_V);
+		mvaddstr(y, x1, SL_V);
+	}
+	attrset(A_NORMAL);
+
+	/* pane titles on the top border; the focused one highlighted */
+	attrset(focus == 0 ? sty_framef | A_REVERSE : sty_frame);
 	mvprintw(b, 2, " TREE ");
-	attrset(focus == 1 ? sty_bar : sty_codeblk);
+	attrset(focus == 1 ? sty_framef | A_REVERSE : sty_frame);
 	mvprintw(b, split + 2, " CONTENT ");
 	attrset(A_NORMAL);
 }
+
+/* ---- dropdown menus (File / Edit / View / Settings / Help) -------------- */
+
+/* menu-only synthetic keys (returned by menu_run, handled in the loops) */
+enum {
+	MK_BASE = 0x1000,
+	MK_FOLDALL, MK_UNFOLDALL, MK_FOCTREE, MK_FOCCONTENT, MK_THEME, MK_ABOUT
+};
+enum { MENU_PICKER, MENU_BROWSER };
+
+typedef struct {
+	const char *label;
+	int key; /* the key the loop already handles; 0 = separator */
+} MItem;
+typedef struct {
+	const char *title;
+	const MItem *items;
+	int n;
+} MMenu;
+
+static const MItem PK_FILE[] = {
+    {"Open bundle", '\n'}, {"New bundle", 'N'}, {"", 0}, {"Quit", 'q'}};
+static const MItem PK_SET[] = {{"Preferences...", ','}, {"Cycle theme", MK_THEME}};
+static const MItem PK_HELP[] = {{"Key reference", '?'}, {"About OKFI", MK_ABOUT}};
+static const MMenu PK_MENUS[] = {
+    {"File", PK_FILE, 4}, {"Settings", PK_SET, 2}, {"Help", PK_HELP, 2}};
+
+static const MItem BR_FILE[] = {{"New concept", 'n'},  {"Export to PDF", 'E'},
+                                {"", 0},               {"Close bundle", 27},
+                                {"", 0},               {"Quit", 'q'}};
+static const MItem BR_EDIT[] = {{"Edit concept", 'e'}};
+static const MItem BR_VIEW[] = {{"Collapse all", MK_FOLDALL},
+                                {"Expand all", MK_UNFOLDALL},
+                                {"", 0},
+                                {"Focus tree", MK_FOCTREE},
+                                {"Focus content", MK_FOCCONTENT}};
+static const MItem BR_SET[] = {{"Preferences...", ','}, {"Cycle theme", MK_THEME}};
+static const MItem BR_HELP[] = {{"Key reference", '?'}, {"About OKFI", MK_ABOUT}};
+static const MMenu BR_MENUS[] = {{"File", BR_FILE, 6}, {"Edit", BR_EDIT, 1},
+                                 {"View", BR_VIEW, 5}, {"Settings", BR_SET, 2},
+                                 {"Help", BR_HELP, 2}};
+
+static void menus_for(int ctx, const MMenu **m, int *n) {
+	if (ctx == MENU_BROWSER) {
+		*m = BR_MENUS;
+		*n = (int)(sizeof BR_MENUS / sizeof BR_MENUS[0]);
+	} else {
+		*m = PK_MENUS;
+		*n = (int)(sizeof PK_MENUS / sizeof PK_MENUS[0]);
+	}
+}
+
+static void menu_layout(int ctx, int *xs) {
+	const MMenu *m;
+	int n;
+	menus_for(ctx, &m, &n);
+	int x = 1 + 4 + 3; /* " OKFI   " */
+	for (int i = 0; i < n; i++) {
+		xs[i] = x;
+		x += (int)strlen(m[i].title) + 2;
+	}
+}
+
+/* draw the row-0 menu bar; active >= 0 highlights that title; right is an
+ * optional right-aligned label (e.g. the open bundle name) */
+static void menu_bar(int ctx, int active, const char *right) {
+	const MMenu *m;
+	int n, xs[8];
+	menus_for(ctx, &m, &n);
+	menu_layout(ctx, xs);
+	attron(sty_bar);
+	mvprintw(0, 0, "%-*.*s", COLS, COLS, "");
+	mvprintw(0, 1, "OKFI");
+	attroff(sty_bar);
+	for (int i = 0; i < n; i++) {
+		attron(i == active ? (sty_bar | A_REVERSE) : sty_bar);
+		mvprintw(0, xs[i], " %s ", m[i].title);
+		attroff(i == active ? (sty_bar | A_REVERSE) : sty_bar);
+	}
+	if (right) {
+		int rx = COLS - 2 - (int)strlen(right);
+		if (rx > xs[n - 1] + 8) {
+			attron(sty_bar);
+			mvprintw(0, rx, "%s", right);
+			attroff(sty_bar);
+		}
+	}
+}
+
+/* run the menu bar modally; returns the chosen item's key, or 0 if cancelled */
+static int menu_run(int ctx) {
+	const MMenu *m;
+	int n, xs[8];
+	menus_for(ctx, &m, &n);
+	int mi = 0, ii = 0;
+	while (ii < m[mi].n && m[mi].items[ii].key == 0)
+		ii++;
+	for (;;) {
+		erase();
+		menu_layout(ctx, xs);
+		menu_bar(ctx, mi, NULL);
+		int items = m[mi].n, w = 0;
+		for (int k = 0; k < items; k++) {
+			int l = (int)strlen(m[mi].items[k].label);
+			if (l > w)
+				w = l;
+		}
+		w += 4;
+		int dx = xs[mi];
+		if (dx + w > COLS)
+			dx = COLS - w;
+		if (dx < 0)
+			dx = 0;
+		attrset(sty_framef);
+		draw_sbox(1, dx, items + 2, w, NULL);
+		attrset(A_NORMAL);
+		for (int k = 0; k < items; k++) {
+			int yy = 2 + k;
+			if (m[mi].items[k].key == 0) { /* separator joined to the box sides */
+				attrset(sty_framef);
+				mvaddstr(yy, dx, SL_VR);
+				for (int c2 = 1; c2 < w - 1; c2++)
+					mvaddstr(yy, dx + c2, SL_H);
+				mvaddstr(yy, dx + w - 1, SL_VL);
+				attrset(A_NORMAL);
+				continue;
+			}
+			attrset(k == ii ? A_REVERSE : A_NORMAL);
+			mvprintw(yy, dx + 1, " %-*.*s", w - 3, w - 3, m[mi].items[k].label);
+			attrset(A_NORMAL);
+		}
+		refresh();
+		int c = getch();
+		if (c == 27 || c == KEY_F(9) || c == 'q')
+			return 0;
+		else if (c == KEY_LEFT || c == 'h') {
+			mi = (mi - 1 + n) % n;
+			ii = 0;
+			while (ii < m[mi].n && m[mi].items[ii].key == 0)
+				ii++;
+		} else if (c == KEY_RIGHT || c == 'l') {
+			mi = (mi + 1) % n;
+			ii = 0;
+			while (ii < m[mi].n && m[mi].items[ii].key == 0)
+				ii++;
+		} else if (c == KEY_UP || c == 'k') {
+			do
+				ii = (ii - 1 + m[mi].n) % m[mi].n;
+			while (m[mi].items[ii].key == 0);
+		} else if (c == KEY_DOWN || c == 'j') {
+			do
+				ii = (ii + 1) % m[mi].n;
+			while (m[mi].items[ii].key == 0);
+		} else if (c == '\n' || c == '\r' || c == KEY_ENTER) {
+			return m[mi].items[ii].key;
+		}
+	}
+}
+
+static const char *const ABOUT_TEXT[] = {
+    "OKFI — Open Knowledge Format Interface",
+    "",
+    "A terminal browser, editor, and PDF exporter",
+    "for OKF knowledge-catalog bundles.",
+    "",
+    "F9 / \\  open menus    ?  key reference",
+};
+static void about_dialog(void) {
+	run_help("About OKFI", ABOUT_TEXT,
+	         (int)(sizeof ABOUT_TEXT / sizeof ABOUT_TEXT[0]));
+}
+
+static int run_export(const char *path); /* defined in the PDF-export section */
 
 /* returns 0 to quit the app, 1 to go back to the bundle picker */
 static int run_browser(int picker_active) {
@@ -2296,11 +2550,7 @@ static int run_browser(int picker_active) {
 		if (bodyw < 1)
 			bodyw = 1;
 
-		char menu[1024];
-		snprintf(menu, sizeof menu,
-		         "fokf  %.40s   h/l:pane  Space:fold  e:edit  n:new  %s,:set ?:help q:quit",
-		         base_name(bundle_root), picker_active ? "Tab:bundles " : "");
-		bar_at(0, menu);
+		menu_bar(MENU_BROWSER, -1, base_name(bundle_root));
 		draw_frame(rows, cols, split, focus);
 
 		/* left pane: type-grouped, collapsible tree */
@@ -2352,12 +2602,9 @@ static int run_browser(int picker_active) {
 		}
 
 		char bar[2048];
-		int off;
-		if (ci >= 0)
-			off = snprintf(bar, sizeof bar, "%s  line %d/%d",
-			               focus ? "content" : "tree", nwl ? body_top + 1 : 0, nwl);
-		else
-			off = snprintf(bar, sizeof bar, "%s  group", focus ? "content" : "tree");
+		int off = snprintf(bar, sizeof bar, "%s  ·  %s  %d/%d", bundle_root,
+		                   focus ? "content" : "tree",
+		                   ci >= 0 ? (nwl ? body_top + 1 : 0) : 0, ci >= 0 ? nwl : 0);
 		for (int i = 0; i < nlinks && off < (int)sizeof bar - 1; i++)
 			off += snprintf(bar + off, sizeof bar - off, "  [%d]%s", i + 1,
 			                links[i].text);
@@ -2365,11 +2612,72 @@ static int run_browser(int picker_active) {
 		refresh();
 
 		int c = getch();
+		if (c == KEY_RESIZE) {
+			clear();
+			continue;
+		}
+		if (c == KEY_F(9) || c == '\\') { /* menu → synthetic key */
+			c = menu_run(MENU_BROWSER);
+			if (!c)
+				continue;
+		}
 		if (c == 'q')
 			return 0;
-		if (c == '\t')
+		if (c == 27) /* Esc: back to the bundle list */
 			return picker_active ? 1 : 0;
-		if (c == 'l' || c == KEY_RIGHT) {
+		if (c == '\t') { /* Tab: fold/unfold the current group */
+			const char *g = on_header ? vrows[sel].label : ci >= 0 ? concept_group(ci) : NULL;
+			if (g) {
+				char gg[160];
+				snprintf(gg, sizeof gg, "%s", g);
+				toggle_collapsed(gg);
+				build_tree_view();
+				sel = vrow_of_header(gg);
+			}
+		} else if (c == KEY_BTAB) { /* Shift+Tab: fold/unfold all */
+			int allc = 1;
+			for (int i = 0; i < nvrows; i++)
+				if (vrows[i].header && !vrows[i].collapsed)
+					allc = 0;
+			if (allc)
+				expand_all();
+			else
+				collapse_all();
+			build_tree_view();
+			if (sel >= nvrows)
+				sel = nvrows - 1;
+		} else if (c == MK_FOLDALL) {
+			collapse_all();
+			build_tree_view();
+			if (sel >= nvrows)
+				sel = nvrows - 1;
+		} else if (c == MK_UNFOLDALL) {
+			expand_all();
+			build_tree_view();
+		} else if (c == MK_FOCTREE) {
+			focus = 0;
+		} else if (c == MK_FOCCONTENT) {
+			if (ci >= 0)
+				focus = 1;
+		} else if (c == MK_THEME) {
+			const char *nx = strcmp(cfg_theme, "dark") == 0 || strcmp(cfg_theme, "default") == 0 ? "light"
+			                 : strcmp(cfg_theme, "light") == 0 ? "bbs"
+			                 : strcmp(cfg_theme, "bbs") == 0   ? "mono"
+			                                                   : "dark";
+			snprintf(cfg_theme, sizeof cfg_theme, "%s", nx);
+			init_styles(g_color);
+			save_config();
+			built_ci = -1;
+		} else if (c == MK_ABOUT) {
+			about_dialog();
+		} else if (c == 'E' && ci >= 0) { /* export this concept to PDF */
+			char p[1100];
+			snprintf(p, sizeof p, "%s/%s", bundle_root, concepts[ci].relpath);
+			endwin();
+			run_export(p);
+			reset_prog_mode();
+			clear();
+		} else if (c == 'l' || c == KEY_RIGHT) {
 			if (ci >= 0)
 				focus = 1;
 		} else if (c == 'h' || c == KEY_LEFT) {
@@ -2468,6 +2776,7 @@ static int run_browser(int picker_active) {
 /* ---- bundle picker (project → project) --------------------------------- */
 
 static const char *const PICKER_HELP[] = {
+    "F9 / \\     open the menu bar",
     "j / k      previous / next bundle",
     "Enter      open the selected bundle",
     "N          create a new bundle",
@@ -2480,24 +2789,31 @@ static void run_picker(void) {
 	for (;;) {
 		erase();
 		int rows = LINES, cols = COLS;
-		bar_at(0, "fokf  BUNDLES   Enter:open  N:new  ,:settings  ?:help  q:quit");
+		char binfo[48];
+		snprintf(binfo, sizeof binfo, "%d bundle%s", nbundles, nbundles == 1 ? "" : "s");
+		menu_bar(MENU_PICKER, -1, binfo);
 
-		int bw = 44;
-		if (bw > cols - 2)
-			bw = cols - 2;
-		int bx = (cols - bw) / 2;
-		if (bx < 0)
-			bx = 0;
-		attron(sty_head);
-		draw_box(2, bx, 3, bw);
-		const char *banner = "F O K F   ·   OKF catalog browser";
-		mvprintw(3, bx + (bw - (int)strlen(banner)) / 2, "%s", banner);
-		attroff(sty_head);
+		int logoy = rows > 18 ? 2 : 1; /* draw the gradient logo near the top */
+		int after = logoy + draw_logo(logoy, cols);
 
-		int ly = 6, lh = rows - ly - 1;
+		int boxtop = after + 1, boxbot = rows - 1; /* list box up to the status row */
+		int boxh = boxbot - boxtop;
+		if (boxh < 3) {
+			boxtop = 1;
+			boxh = boxbot - boxtop;
+		}
+		char btitle[64];
+		snprintf(btitle, sizeof btitle, "BUNDLES (%d)", nbundles);
+		attrset(sty_framef);
+		draw_sbox(boxtop, 0, boxh, cols, btitle);
+		attrset(A_NORMAL);
+
+		int ly = boxtop + 1, lh = boxh - 2, innerw = cols - 4;
 		if (nbundles == 0) {
-			mvprintw(ly + 1, 4, "No OKF bundles found under your search roots.");
-			mvprintw(ly + 2, 4, "Press N to create one, or , to add a search root.");
+			mvprintw(ly + 1, 2, "%.*s", innerw,
+			         "No OKF bundles found under your search roots.");
+			mvprintw(ly + 2, 2, "%.*s", innerw,
+			         "Press N to create one, or open Settings to add a search root.");
 		}
 		if (sel < top)
 			top = sel;
@@ -2507,17 +2823,31 @@ static void run_picker(void) {
 			Bundle *b = &bundles[top + i];
 			char line[1200];
 			snprintf(line, sizeof line, "%-22s  %s", b->name, b->path);
-			attrset(top + i == sel ? A_REVERSE : A_NORMAL);
-			mvprintw(ly + i, 2, "%-*.*s", cols - 4, cols - 4, line);
+			int on = (top + i == sel);
+			attrset(on ? A_REVERSE : A_NORMAL);
+			mvprintw(ly + i, 2, "%-*.*s", innerw, innerw, line);
+			if (!on) { /* tint the path dim */
+				int pp = 24;
+				if (pp < innerw) {
+					attrset(sty_tag);
+					mvprintw(ly + i, 2 + pp, "%.*s", innerw - pp, line + pp);
+				}
+			}
 			attrset(A_NORMAL);
 		}
-		char st[128];
-		snprintf(st, sizeof st, "%d bundle%s discovered", nbundles,
-		         nbundles == 1 ? "" : "s");
-		bar_at(rows - 1, st);
+		bar_at(rows - 1, "Enter open · N new · F9 menu · , settings · ? help · q quit");
 		refresh();
 
 		int c = getch();
+		if (c == KEY_RESIZE) {
+			clear();
+			continue;
+		}
+		if (c == KEY_F(9) || c == '\\') { /* open the menu; result is a synthetic key */
+			c = menu_run(MENU_PICKER);
+			if (!c)
+				continue;
+		}
 		if (c == 'q')
 			return;
 		if (c == 'j' || c == KEY_DOWN) {
@@ -2526,6 +2856,16 @@ static void run_picker(void) {
 		} else if (c == 'k' || c == KEY_UP) {
 			if (sel > 0)
 				sel--;
+		} else if (c == MK_THEME) {
+			const char *nx = strcmp(cfg_theme, "dark") == 0 || strcmp(cfg_theme, "default") == 0 ? "light"
+			                 : strcmp(cfg_theme, "light") == 0 ? "bbs"
+			                 : strcmp(cfg_theme, "bbs") == 0   ? "mono"
+			                                                   : "dark";
+			snprintf(cfg_theme, sizeof cfg_theme, "%s", nx);
+			init_styles(g_color);
+			save_config();
+		} else if (c == MK_ABOUT) {
+			about_dialog();
 		} else if ((c == '\n' || c == '\r') && nbundles > 0) {
 			load_bundle(bundles[sel].path); /* switching bundles */
 			if (run_browser(1) == 0)
@@ -2962,23 +3302,23 @@ static void print_tex_errors(const char *dir) {
 static int run_export(const char *path) {
 	char *content = read_file(path);
 	if (!content) {
-		fprintf(stderr, "fokf: cannot read '%s'\n", path);
+		fprintf(stderr, "okfi: cannot read '%s'\n", path);
 		return 1;
 	}
 	Concept c;
 	parse_buffer(&c, base_name(path), content);
 	free(content);
 
-	char dir[] = "/tmp/fokf-pdf-XXXXXX";
+	char dir[] = "/tmp/okfi-pdf-XXXXXX";
 	if (!mkdtemp(dir)) {
-		fprintf(stderr, "fokf: cannot create temp directory\n");
+		fprintf(stderr, "okfi: cannot create temp directory\n");
 		return 1;
 	}
 	char texpath[1100];
 	snprintf(texpath, sizeof texpath, "%s/doc.tex", dir);
 	FILE *f = fopen(texpath, "w");
 	if (!f) {
-		fprintf(stderr, "fokf: cannot write %s\n", texpath);
+		fprintf(stderr, "okfi: cannot write %s\n", texpath);
 		rmdir(dir); /* empty — nothing to inspect */
 		return 1;
 	}
@@ -3028,11 +3368,11 @@ static int run_export(const char *path) {
 	snprintf(pdfpath, sizeof pdfpath, "%s/doc.pdf", dir);
 
 	if (ok && copy_file(pdfpath, outname) == 0) {
-		fprintf(stderr, "fokf: wrote %s\n", outname);
+		fprintf(stderr, "okfi: wrote %s\n", outname);
 		cleanup_dir(dir);
 		return 0;
 	}
-	fprintf(stderr, "fokf: pdflatex failed (kept build dir %s)\n", dir);
+	fprintf(stderr, "okfi: pdflatex failed (kept build dir %s)\n", dir);
 	print_tex_errors(dir);
 	return 1;
 }
@@ -3269,15 +3609,15 @@ static int selftest(void) {
 
 static void usage(void) {
 	fprintf(stderr,
-	        "fokf — OKF catalog browser\n"
-	        "usage: fokf [--mono|--no-color] [--root DIR]... [bundle-dir]\n"
-	        "       fokf --new-bundle DIR\n"
-	        "       fokf --new-concept BUNDLE NAME [TYPE]\n"
-	        "       fokf --export-pdf CONCEPT.md\n"
-	        "       fokf --selftest\n"
+	        "okfi — OKF catalog browser\n"
+	        "usage: okfi [--mono|--no-color] [--root DIR]... [bundle-dir]\n"
+	        "       okfi --new-bundle DIR\n"
+	        "       okfi --new-concept BUNDLE NAME [TYPE]\n"
+	        "       okfi --export-pdf CONCEPT.md\n"
+	        "       okfi --selftest\n"
 	        "\n"
 	        "With no bundle-dir, browse all bundles discovered under the search\n"
-	        "roots in your config ($XDG_CONFIG_HOME/fokf/config). With a bundle-dir,\n"
+	        "roots in your config ($XDG_CONFIG_HOME/okfi/config). With a bundle-dir,\n"
 	        "open that bundle directly.\n");
 }
 
@@ -3296,40 +3636,40 @@ int main(int argc, char **argv) {
 		}
 		if (strcmp(argv[i], "--export-pdf") == 0) {
 			if (i + 1 >= argc) {
-				fprintf(stderr, "fokf: --export-pdf needs a concept .md path\n");
+				fprintf(stderr, "okfi: --export-pdf needs a concept .md path\n");
 				return 2;
 			}
 			return run_export(argv[i + 1]);
 		}
 		if (strcmp(argv[i], "--new-bundle") == 0) {
 			if (i + 1 >= argc) {
-				fprintf(stderr, "fokf: --new-bundle needs a directory\n");
+				fprintf(stderr, "okfi: --new-bundle needs a directory\n");
 				return 2;
 			}
 			new_bundle_at(argv[i + 1]);
-			fprintf(stderr, "fokf: seeded bundle at %s\n", argv[i + 1]);
+			fprintf(stderr, "okfi: seeded bundle at %s\n", argv[i + 1]);
 			return 0;
 		}
 		if (strcmp(argv[i], "--new-concept") == 0) {
 			if (i + 2 >= argc) {
 				fprintf(stderr,
-				        "fokf: --new-concept needs BUNDLE NAME [TYPE]\n");
+				        "okfi: --new-concept needs BUNDLE NAME [TYPE]\n");
 				return 2;
 			}
 			const char *type = (i + 3 < argc) ? argv[i + 3] : "Concept";
 			if (create_concept_file(argv[i + 1], argv[i + 2], type) != 0) {
-				fprintf(stderr, "fokf: could not create concept (exists/reserved?)\n");
+				fprintf(stderr, "okfi: could not create concept (exists/reserved?)\n");
 				return 1;
 			}
 			char desc[300];
 			snprintf(desc, sizeof desc, "Added `%s`.", argv[i + 2]);
 			log_prepend(argv[i + 1], "Creation", desc);
-			fprintf(stderr, "fokf: created %s/%s\n", argv[i + 1], argv[i + 2]);
+			fprintf(stderr, "okfi: created %s/%s\n", argv[i + 1], argv[i + 2]);
 			return 0;
 		}
 		if (strcmp(argv[i], "--root") == 0) {
 			if (i + 1 >= argc) {
-				fprintf(stderr, "fokf: --root needs a directory\n");
+				fprintf(stderr, "okfi: --root needs a directory\n");
 				return 2;
 			}
 			cfg_add_root(argv[++i]);
@@ -3337,7 +3677,7 @@ int main(int argc, char **argv) {
 		           strcmp(argv[i], "--no-color") == 0) {
 			force_mono = 1;
 		} else if (argv[i][0] == '-') {
-			fprintf(stderr, "fokf: unknown option '%s'\n", argv[i]);
+			fprintf(stderr, "okfi: unknown option '%s'\n", argv[i]);
 			usage();
 			return 2;
 		} else {

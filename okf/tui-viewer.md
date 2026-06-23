@@ -1,7 +1,7 @@
 ---
 type: Component
 title: TUI viewer
-description: The ncurses front-end of fokf — a two-pane bundle browser with keyboard navigation.
+description: The ncurses front-end of okfi — a two-pane bundle browser with keyboard navigation.
 tags: [tui, ncurses, ui]
 timestamp: 2026-06-22T23:00:00Z
 ---
@@ -16,12 +16,15 @@ A two-pane split:
   (saved per-bundle in the config). Group order is configurable (type / count / priority,
   see [config](/config.md)). Reserved files (`index.md`, `log.md`) form a `reserved` group,
   always last.
-- The two panes sit in a **frame**; the **focused** pane's border is brightened and its
-  title (`TREE` / `CONTENT`) highlighted.
+- The two panes sit in a connected single-line **frame**; the **focused** pane's border is
+  drawn in the bright frame colour and its title (`TREE` / `CONTENT`) highlighted.
 - **Right pane** — the selected concept's frontmatter (keys shown styled, values plain)
   followed by its body, word-wrapped and markdown-styled.
 
-A top bar shows the bundle root path; a bottom bar shows key hints.
+Row 0 is a **menu bar** (`File · Edit · View · Settings · Help`) with the open bundle's name
+on the right; the bottom bar shows its full path plus key hints. Open the menus with `F9`
+(or `\`) — ←/→ between menus, ↑/↓ within, Enter to run, Esc to close. The gradient **OKFI
+logo** heads the bundle picker.
 
 # Markdown styling
 
@@ -55,15 +58,15 @@ listed as followable.
 
 # Color
 
-On a color-capable terminal fokf draws a color interface (a 256-color palette when
+On a color-capable terminal okfi draws a color interface (a 256-color palette when
 `COLORS >= 256`, otherwise the 8/16-color set), themed and per-color configurable — see
 [Configuration](/config.md). It falls back to monochrome when color is unavailable, when
 `NO_COLOR` is set, or with `--mono` / `--no-color`.
 
 # Navigation
 
-The browser is one view of fokf: it opens from the bundle [picker](/discovery.md) (or
-directly via `fokf <dir>`). A menu bar runs across the top.
+The browser is one view of okfi: it opens from the bundle [picker](/discovery.md) (or
+directly via `okfi <dir>`). A menu bar runs across the top.
 
 Two panes have **focus**: the tree (left) and the content (right). `l`/`→` focuses the
 content so you can scroll it; `h`/`←` returns to the tree. The menu bar shows which pane
@@ -71,18 +74,17 @@ has focus.
 
 | Key | Action |
 |-----|--------|
+| `F9` / `\` | open the menu bar |
 | `j` / `↓`, `k` / `↑` | move within the focused pane (tree row, or scroll body) |
 | `l` / `→`, `h` / `←` | focus the content pane / the tree |
-| `Space` / `Enter` | collapse/expand a group header, or open a concept |
-| `*` | collapse all groups / expand all |
-| `g` / `G` | first / last in the focused pane |
-| `J` / `K`, `PgDn` / `PgUp` | scroll the body from either pane |
+| `Tab` | collapse/expand the current group |
+| `Shift+Tab` / `*` | collapse all groups / expand all |
+| `Space` / `Enter` | fold a group header, or open a concept |
+| `g` / `G`, `J` / `K`, `PgDn`/`PgUp` | first/last · scroll the body |
 | `1`..`9` | follow the n-th body link (see Cross-links) |
-| `e` | [edit](/editor.md) this concept |
-| `n` | [new concept](/create.md) in this bundle |
-| `Tab` | back to the bundle picker |
-| `,` | [settings](/config.md)    `?` help |
-| `q` | quit fokf |
+| `e` / `n` / `E` | [edit](/editor.md) · [new concept](/create.md) · export PDF |
+| `Esc` | back to the bundle picker |
+| `,` | [settings](/config.md)    `?` help    `q` quit |
 
 # Scope
 

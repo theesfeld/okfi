@@ -1,7 +1,7 @@
 ---
 type: Playbook
 title: Creating bundles & concepts
-description: Scaffold a new OKF bundle or concept from fokf, in-program or headless.
+description: Scaffold a new OKF bundle or concept from okfi, in-program or headless.
 tags: [create, scaffold, new]
 timestamp: 2026-06-22T22:00:00Z
 ---
@@ -11,7 +11,7 @@ Seeds a conformant bundle root: `index.md` carrying `okf_version: "0.1"` and a `
 with a dated creation entry. Existing files are never overwritten.
 
 - TUI: `N` in the [picker](/discovery.md) → type the directory (a leading `~/` expands).
-- CLI: `fokf --new-bundle <dir>`.
+- CLI: `okfi --new-bundle <dir>`.
 
 # New concept
 
@@ -23,7 +23,7 @@ file is never clobbered.
 
 - TUI: `n` in the [browser](/tui-viewer.md) → concept path (e.g. `tables/orders.md`),
   then a type.
-- CLI: `fokf --new-concept <bundle> <name> [type]` (type defaults to `Concept`).
+- CLI: `okfi --new-concept <bundle> <name> [type]` (type defaults to `Concept`).
 
 # Note on log.md
 

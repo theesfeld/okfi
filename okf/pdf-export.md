@@ -7,11 +7,11 @@ timestamp: 2026-06-22T20:00:00Z
 ---
 # Status
 
-**Built (single concept).** `fokf --export-pdf <concept.md>` writes `./<name>.pdf`.
+**Built (single concept).** `okfi --export-pdf <concept.md>` writes `./<name>.pdf`.
 
 # Goal
 
-Export an OKF concept to a typeset PDF, reusing the block/inline markdown model fokf
+Export an OKF concept to a typeset PDF, reusing the block/inline markdown model okfi
 already parses for the [TUI viewer](/tui-viewer.md). One classifier
 (`classify_line` / `table_block` / `split_cells`) drives both the screen renderer and the
 LaTeX emitter, so markdown handling never diverges.
@@ -35,7 +35,7 @@ on failure and printing the first `pdflatex` errors).
 
 # Markdown → milmanual mapping
 
-| fokf block/inline | milmanual output |
+| okfi block/inline | milmanual output |
 |---|---|
 | concept | `\makemilcover` (title, `type` as document number, timestamp) + one `\chapter` |
 | frontmatter | a `booktabs` key/value table (URLs via `\url`) |
@@ -70,7 +70,7 @@ selected concept, and `..`-relative link rewriting in exported cross-links.
 
 # Verification
 
-`fokf --export-pdf okf/tui-viewer.md` compiles (heading hierarchy → Sections I–VII, the
+`okfi --export-pdf okf/tui-viewer.md` compiles (heading hierarchy → Sections I–VII, the
 Navigation pipe table → a booktabs table, links, bullets, and `--flag` code spans rendering
 with literal double hyphens). A clean `pdflatex` run is itself the escaping test — an
 unescaped special would abort the compile. See [Build & run](/build.md).

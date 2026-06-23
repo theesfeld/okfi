@@ -1,6 +1,15 @@
 <div align="center">
 
-# fokf
+```
+ ██████╗ ██╗  ██╗███████╗██╗
+██╔═══██╗██║ ██╔╝██╔════╝██║
+██║   ██║█████╔╝ █████╗  ██║
+██║   ██║██╔═██╗ ██╔══╝  ██║
+╚██████╔╝██║  ██╗██║     ██║
+ ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝
+```
+
+# OKFI — Open Knowledge Format Interface
 
 **A terminal browser, editor, and PDF exporter for [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog) (OKF) bundles.**
 
@@ -45,7 +54,7 @@ vendor-neutral, agent-agnostic standard for project knowledge: plain Markdown fi
 YAML frontmatter, no database, no SDK. A **bundle** is a directory of *concept* files (one
 per `.md`), plus the reserved `index.md` and `log.md`.
 
-**fokf** is a single-file C/ncurses program that browses those bundles:
+**okfi** is a single-file C/ncurses program that browses those bundles:
 
 - discovers every bundle under your configured search roots and lists them in a **picker**;
 - shows each bundle as a **type-grouped, collapsible tree** with counts;
@@ -56,7 +65,7 @@ per `.md`), plus the reserved `index.md` and `log.md`.
 - **exports** a concept to a typeset PDF.
 
 > [!NOTE]
-> The OKF spec is deliberately silent on *where* bundles live. fokf assumes the practical
+> The OKF spec is deliberately silent on *where* bundles live. okfi assumes the practical
 > model: **decentralized storage** (one `okf/` per project repo, so the catalog travels with
 > its code) + **centralized browsing** (one tool that roams across all of them). See
 > [How discovery works](#how-discovery-works).
@@ -90,34 +99,34 @@ theme renders it in vivid cyan/magenta on blue.)*
 > [`milstd`](#pdf-export) LaTeX kit — neither is needed to build or browse.
 
 ```sh
-git clone https://github.com/theesfeld/fokf.git
-cd fokf
+git clone https://github.com/theesfeld/okfi.git
+cd okfi
 make
 ```
 
-This produces the `fokf` binary in the project directory.
+This produces the `okfi` binary in the project directory.
 
 <details>
 <summary>What <code>make</code> runs</summary>
 
 ```sh
 cc -std=c11 -Wall -Wextra -O2 $(pkg-config --cflags ncursesw) \
-   -o fokf fokf.c $(pkg-config --libs ncursesw)
+   -o okfi okfi.c $(pkg-config --libs ncursesw)
 ```
 
 The build is warning-free under `-Wall -Wextra`. Run the built-in self-check with
-`./fokf --selftest` (exits `0` on success).
+`./okfi --selftest` (exits `0` on success).
 </details>
 
 ## Quick start
 
 ```sh
-./fokf                         # browse every bundle under your search roots
-./fokf path/to/okf             # open one bundle directly (skips the picker)
-./fokf --new-bundle ./okf      # scaffold a fresh OKF bundle here
+./okfi                         # browse every bundle under your search roots
+./okfi path/to/okf             # open one bundle directly (skips the picker)
+./okfi --new-bundle ./okf      # scaffold a fresh OKF bundle here
 ```
 
-On first run with no config, fokf seeds sensible search roots (the parent of your current
+On first run with no config, okfi seeds sensible search roots (the parent of your current
 directory, and `~/Projects` if it exists) and writes them to its config file.
 
 ## Usage
@@ -151,16 +160,16 @@ directory, and `~/Projects` if it exists) and writes them to its config file.
 
 | Key | Action |
 |-----|--------|
+| `F9` / `\` | open the menu bar (File · Edit · View · Settings · Help) |
 | `j` / `k`, `↑` / `↓` | move within the focused pane |
 | `l` / `→`, `h` / `←` | focus the content pane / the tree |
-| `Space` / `Enter` | collapse/expand a group, or open a concept |
-| `*` | collapse all groups / expand all |
-| `g` / `G` | first / last (in the focused pane) |
-| `J` / `K`, `PgDn` / `PgUp` | scroll the body |
+| `Tab` | collapse/expand the current group |
+| `Shift+Tab` / `*` | collapse all groups / expand all |
+| `Space` / `Enter` | fold a group, or open a concept |
+| `g` / `G`, `J` / `K`, `PgDn`/`PgUp` | first/last · scroll the body |
 | `1`–`9` | follow a numbered cross-link |
-| `e` | edit this concept |
-| `n` | new concept in this bundle |
-| `Tab` | back to the bundle list |
+| `e` / `n` / `E` | edit · new concept · export PDF |
+| `Esc` | back to the bundle list |
 | `,` / `?` / `q` | settings / help / quit |
 
 **Editor** (built-in)
@@ -173,8 +182,8 @@ directory, and `~/Projects` if it exists) and writes them to its config file.
 
 ## Configuration
 
-Config lives in an XDG-compliant location — `$XDG_CONFIG_HOME/fokf/config` (falling back to
-`~/.config/fokf/config`). It is plain text, hand-editable, **written on every in-program
+Config lives in an XDG-compliant location — `$XDG_CONFIG_HOME/okfi/config` (falling back to
+`~/.config/okfi/config`). It is plain text, hand-editable, **written on every in-program
 change**, and **preserves unknown keys** on rewrite.
 
 ```ini
@@ -182,7 +191,7 @@ change**, and **preserves unknown keys** on rewrite.
 root = /home/me/Projects
 root = /home/me/work
 
-theme        = bbs        # default | bbs | mono
+theme        = bbs        # dark | light | bbs | mono
 editor       = internal   # internal (built-in) | system ($VISUAL/$EDITOR)
 group_order  = count      # type | count | priority
 group_priority = ADR,Reference   # for group_order = priority
@@ -249,7 +258,7 @@ tree.
 
 ## PDF export
 
-`fokf --export-pdf <concept.md>` emits a LaTeX document and runs `pdflatex`, writing
+`okfi --export-pdf <concept.md>` emits a LaTeX document and runs `pdflatex`, writing
 `./<name>.pdf`.
 
 > [!WARNING]
@@ -265,7 +274,7 @@ This repository dogfoods OKF: its own knowledge catalog lives in [`okf/`](okf/).
 
 | Concept | What it documents |
 |---------|-------------------|
-| [`okf-format.md`](okf/okf-format.md) | the OKF subset fokf parses |
+| [`okf-format.md`](okf/okf-format.md) | the OKF subset okfi parses |
 | [`discovery.md`](okf/discovery.md) | bundle discovery + the placement model |
 | [`tui-viewer.md`](okf/tui-viewer.md) | the browser view, tree, styling, cross-links |
 | [`editor.md`](okf/editor.md) | the in-TUI editor |
@@ -278,11 +287,11 @@ This repository dogfoods OKF: its own knowledge catalog lives in [`okf/`](okf/).
 
 ```sh
 make            # build (warning-free under -Wall -Wextra)
-./fokf --selftest   # run the assert-based self-check
+./okfi --selftest   # run the assert-based self-check
 make clean
 ```
 
-The program is a single translation unit, [`fokf.c`](fokf.c). Standard C11 for the language;
+The program is a single translation unit, [`okfi.c`](okfi.c). Standard C11 for the language;
 ncursesw and POSIX (`fork`/`exec`, `mkdtemp`, `open_memstream`, …) for the runtime.
 
 ## Roadmap

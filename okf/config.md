@@ -1,17 +1,17 @@
 ---
 type: Reference
 title: Configuration & settings
-description: fokf's XDG config file, every option, and the in-program settings screen.
+description: okfi's XDG config file, every option, and the in-program settings screen.
 tags: [config, settings, xdg, colors, theme]
-timestamp: 2026-06-22T22:00:00Z
+timestamp: 2026-06-23T00:00:00Z
 ---
 # Location
 
-`$XDG_CONFIG_HOME/fokf/config` (falling back to `~/.config/fokf/config`). Plain text,
-`key = value`, one per line; `#` comments and blank lines ignored. fokf **writes it on
+`$XDG_CONFIG_HOME/okfi/config` (falling back to `~/.config/okfi/config`). Plain text,
+`key = value`, one per line; `#` comments and blank lines ignored. okfi **writes it on
 every in-program change** and you may also edit it by hand. Unknown keys are preserved
 verbatim on rewrite (liberal-consumer rule, like OKF frontmatter). On first run with no
-config, fokf seeds sensible search roots (the parent of the cwd, and `~/Projects` if it
+config, okfi seeds sensible search roots (the parent of the cwd, and `~/Projects` if it
 exists) and saves the file.
 
 # Options
@@ -19,8 +19,8 @@ exists) and saves the file.
 | Key | Meaning |
 |---|---|
 | `root = PATH` | A search root for [discovery](/discovery.md). Repeatable. |
-| `theme = default \| bbs \| mono` | Base palette. `bbs` is the vivid old-school skin; `mono` forces attribute-only. |
-| `editor = internal \| system` | `internal` uses fokf's [built-in editor](/editor.md); `system` opens `$VISUAL`/`$EDITOR` (default `vi`). |
+| `theme = dark \| light \| bbs \| mono` | Base palette. `dark`/`light` are tuned for dark/light terminal backgrounds; `bbs` is the vivid old-school skin; `mono` forces attribute-only. (`default` is accepted as an alias for `dark`.) |
+| `editor = internal \| system` | `internal` uses okfi's [built-in editor](/editor.md); `system` opens `$VISUAL`/`$EDITOR` (default `vi`). |
 | `group_order = type \| count \| priority` | Tree group order: alphabetical, by descending concept count, or by `group_priority`. `reserved` is always last. |
 | `group_priority = A,B,C` | For `group_order = priority`: the type names to list first, in order; others follow alphabetically. |
 | `fold = BUNDLE⇥GROUP` | A collapsed group, keyed by bundle path (tab-separated). Written automatically when you fold a group; persists collapse state across runs. |

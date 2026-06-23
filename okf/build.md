@@ -1,7 +1,7 @@
 ---
 type: Playbook
 title: Build & run
-description: How to compile fokf and open an OKF bundle.
+description: How to compile okfi and open an OKF bundle.
 tags: [build, make, ncurses]
 timestamp: 2026-06-22T22:00:00Z
 ---
@@ -21,14 +21,14 @@ make
 # Run
 
 ```sh
-./fokf                          # browse all bundles found under your search roots
-./fokf <bundle-dir>             # open one bundle directly (skips the picker)
-./fokf --root DIR               # add a search root for this run (repeatable)
-./fokf --mono                   # force the monochrome interface (alias: --no-color)
-./fokf --new-bundle DIR         # scaffold a new bundle (index.md + log.md)
-./fokf --new-concept B NAME [T] # scaffold a concept of type T in bundle B
-./fokf --export-pdf <c.md>      # export one concept to ./<name>.pdf (milstd milmanual)
-./fokf --selftest               # run the built-in self-check; exits 0 on success
+./okfi                          # browse all bundles found under your search roots
+./okfi <bundle-dir>             # open one bundle directly (skips the picker)
+./okfi --root DIR               # add a search root for this run (repeatable)
+./okfi --mono                   # force the monochrome interface (alias: --no-color)
+./okfi --new-bundle DIR         # scaffold a new bundle (index.md + log.md)
+./okfi --new-concept B NAME [T] # scaffold a concept of type T in bundle B
+./okfi --export-pdf <c.md>      # export one concept to ./<name>.pdf (milstd milmanual)
+./okfi --selftest               # run the built-in self-check; exits 0 on success
 ```
 
 Discovery, theme, and per-color options live in an XDG config — see
