@@ -1,6 +1,7 @@
 # Update Log
 
 ## 2026-06-23
+* **Fix**: Corrected the OKFI logo art (rows were uneven widths → garbled letters; now verified 28 columns each, literal UTF-8). Made rendering auto-margin-safe: the last terminal column is now never written (bars stop at `COLS-1`; both panes lay out within `COLS-1`), so a long line can no longer trigger a one-row scroll that ate the top menu bar.
 * **Update**: Renamed the project **fokf → okfi** (Open Knowledge Format Interface) — binary, config dir (`~/.config/okfi/`), source `okfi.c`, temp files, and all branding.
 * **Update**: v3 visual overhaul — a gradient **OKFI ANSI logo** (cyan→magenta) heads the picker; real **dropdown menus** (`File · Edit · View · Settings · Help`, `F9`/`\`); four readable **themes** (`dark`/`light`/`bbs`/`mono`) replacing the washed-out default; a connected single-line **frame** with the **focused pane outlined/highlighted**; the open **bundle name** in the menu bar and **path** in the status bar; `Tab` folds the current group and `Shift+Tab` folds all; `Esc` returns to the picker; a hard top/bottom-bar constraint with `KEY_RESIZE` handling. Revised `tui-viewer.md`, `config.md`.
 
